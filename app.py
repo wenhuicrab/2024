@@ -99,36 +99,16 @@ def callback():
             TextSendMessage(text=ph.read(event.message.text));
         )
 
-    return 'OK'
-
-def callback():
-    signature = request.headers['X-Line-Signature']
-
-    # get request body as text
-    body = request.get_data(as_text=True)
-    app.logger.info("Request body: " + body)
-
-    # parse webhook body
-    try:
-        events = parser.parse(body, signature)
-    except InvalidSignatureError:
-        abort(400)
-
-    # if event is MessageEvent and message is TextMessage, then call multiplication quiz function
-    for event in events:
-        if not isinstance(event, MessageEvent):
-            continue
-        if not isinstance(event.message, TextMessage):
-            continue
-
         # Call your multiplication quiz function here
-        if event.message.text == '九九乘法表':  # 假設觸發條件是收到文字訊息 '九九乘法表'
+        elif event.message.text == '九九乘法表':
             multiplication_quiz(event.reply_token)
-        else:
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(text=99.read(event.message.text))
-            )
+            else:
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(text="請輸入 '九九乘法表' 來觸發九九乘法表")
+        )
+        
+
 
     return 'OK'
 if __name__ == "__main__":
