@@ -16,6 +16,7 @@
 import os
 import sys
 import phonetic as ph
+import 99 
 from argparse import ArgumentParser
 
 from flask import Flask, request, abort
@@ -68,7 +69,14 @@ def callback():
 
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text=ph.read(event.message.text))
+            TextSendMessage(text=ph.read(event.message.text));
+
+        elif msg=='九九乘法':
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=99.read(event.message.text));
+    
+            )
         )
 
     return 'OK'
