@@ -53,6 +53,6 @@ def read(word):
         return '解析 HTML 元素出錯'
 
 # 測試程式碼
-word = input('請輸入中文字:')
-result = read(word)
-print(result)
+#word = input('請輸入中文字:')
+#result = read(word)
+#print(result)
