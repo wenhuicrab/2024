@@ -18,6 +18,8 @@ import sys
 import phonetic as ph
 import aaaaa as multiplication_quiz 
 import random
+from linebot.models import MessageEvent, TextSendMessage, StickerSendMessage, ImageSendMessage, LocationSendMessage
+import datetime
 from argparse import ArgumentParser
 
 from flask import Flask, request, abort
@@ -46,33 +48,52 @@ if channel_access_token is None:
 line_bot_api = LineBotApi(channel_access_token)
 parser = WebhookParser(channel_secret)
 
+def getNews(num=10):
+    """"擷取中央社新聞"""
+    url = "https://www.cna.com.tw/list/aall.aspx"
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:77.0) Gecko/20100101 Firefox/77.0'}
+    html = requests.get(url, headers=headers)
+    
+    soup = BeautifulSoup(html.text, 'html.parser')
+    soup.encoding = 'utf-8'
+    
+    allnews = soup.find(id="jsMainList")
+    nn = allnews.find_all('li')
+    
+    mm = ""
+    for n in nn[:num]:
+        mm += n.find('div',class_='date').text +' '
+        mm += n.find('h2').text +'\n'
+        mm += 'https://www.cna.com.tw/' + n.find('a').get('href') +'\n'
+        mm += '-'*30+'\n'
+    return mm
+
 @app.route("/callback", methods=['POST'])
-def callback():
-    signature = request.headers['X-Line-Signature']
+def callback(request):
+    if request.method == 'POST':
+        signature = request.META['HTTP_X_LINE_SIGNATURE']
+        body = request.body.decode('utf-8')
 
-    # get request body as text
-    body = request.get_data(as_text=True)
-    app.logger.info("Request body: " + body)
+        try:
+            events = parser.parse(body, signature)
+        except InvalidSignatureError:
+            return HttpResponseForbidden()
+        except LineBotApiError:
+            return HttpResponseBadRequest()
 
-    # parse webhook body
-    try:
-        events = parser.parse(body, signature)
-    except InvalidSignatureError:
-        abort(400)
+        for event in events:
+            # 若有訊息事件
+            if isinstance(event, MessageEvent):
 
-    # handle events
-    for event in events:
-        if isinstance(event, MessageEvent):
-            if isinstance(event.message, TextMessage):
-                if event.message.text == '九九乘法表':
-                    multiplication_quiz(event.reply_token)
-                else:
-                    line_bot_api.reply_message(
+                if msg = event.message.text
+                   msg=='油價' or msg=='今日油價':
+                   sms = getOilPrice()
+                   line_bot_api.reply_message(
                         event.reply_token,
-                        TextSendMessage(text="請輸入 '九九乘法表' 來觸發九九乘法表")
+                        TextSendMessage(text=sms)
                     )
-
-    return 'OK'
+                    
+                    
 
 if __name__ == "__main__":
     arg_parser = ArgumentParser(
