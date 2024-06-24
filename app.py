@@ -1,14 +1,8 @@
-# -*- coding: utf-8 -*-
-
-import os
-import sys
-import requests
 import random
 import datetime
+import requests
 from bs4 import BeautifulSoup
-from argparse import ArgumentParser
-
-from flask import Flask, request, abort
+from flask import Flask, request, abort, jsonify
 from linebot import (
     LineBotApi, WebhookParser
 )
@@ -16,20 +10,14 @@ from linebot.exceptions import (
     InvalidSignatureError
 )
 from linebot.models import (
-    MessageEvent, TextMessage, TextSendMessage,
+    MessageEvent, TextMessage, TextSendMessage, ImageSendMessage, StickerSendMessage
 )
+import phonetic as ph  # 假設 ph.read 函式在 phonetic 模組中
+import settings  # 假設 LINE_CHANNEL_ACCESS_TOKEN 和 LINE_CHANNEL_SECRET 在 settings 中設定
 
-app = Flask(__name__)
 
-# get channel_secret and channel_access_token from your environment variable
-channel_secret = os.getenv('LINE_CHANNEL_SECRET', None)
-channel_access_token = os.getenv('LINE_CHANNEL_ACCESS_TOKEN', None)
-if channel_secret is None:
-    print('Specify LINE_CHANNEL_SECRET as environment variable.')
-    sys.exit(1)
-if channel_access_token is None:
-    print('Specify LINE_CHANNEL_ACCESS_TOKEN as environment variable.')
-    sys.exit(1)
+line_bot_api = LineBotApi(settings.LINE_CHANNEL_ACCESS_TOKEN)
+parser = WebhookParser(settings.LINE_CHANNEL_SECRET)
 
 # 全局變數來跟踪乘法測驗的狀態
 multiplication_ing = False
@@ -37,8 +25,8 @@ num1 = None
 num2 = None
 correct_answer = None
 
-line_bot_api = LineBotApi(channel_access_token)
-parser = WebhookParser(channel_secret)
+def index(request):
+    return HttpResponse("hello")
 
 def getInvoice():
     url = "https://invoice.etax.nat.gov.tw"
@@ -97,7 +85,7 @@ def getNews(num=10):
         mm += '-' * 30 + '\n'
     return mm
 
-@app.route("/callback", methods=['POST'])
+@csrf_exempt
 def callback(request):
     global multiplication_ing, num1, num2, correct_answer
 
@@ -116,12 +104,18 @@ def callback(request):
             # 若有訊息事件
             if isinstance(event, MessageEvent):
                 msg = event.message.text
-                imgurl = "https://i.imgur.com/6hVi7dy.gif"
 
                 if msg in ['hello', 'hi', '嗨', '哈囉']:
                     line_bot_api.reply_message(
                         event.reply_token,
                         StickerSendMessage(package_id=11537, sticker_id=52002738)
+                    )
+
+                elif msg == '你是誰':
+                    reply_msg = '我是蔣中正!'
+                    line_bot_api.reply_message(
+                        event.reply_token,
+                        TextSendMessage(text=reply_msg)
                     )
 
                 elif msg == 'guess':
@@ -161,6 +155,14 @@ def callback(request):
                         ImageSendMessage(original_content_url=img, preview_image_url=img)
                     )
 
+                elif msg.startswith('今天誰'):
+                    names = ['馮雅嵐', '鍾旻蓁', '陳玟卉', '施芷庭', '吉彥安']
+                    reply_msg = msg.replace('誰', '') + '的是:' + random.choice(names)
+                    line_bot_api.reply_message(
+                        event.reply_token,
+                        TextSendMessage(text=reply_msg)
+                    )
+
                 elif msg == '九九乘法':
                     if multiplication_ing:
                         multiplication_ing = False
@@ -176,14 +178,14 @@ def callback(request):
                         event.reply_token,
                         TextSendMessage(text=reply_msg)
                     )
-                
+
                 elif msg == '結束測驗':
                     if multiplication_ing:
                         multiplication_ing = False
                         reply_msg = "測驗已結束"
                     else:
                         reply_msg = "目前沒有進行中的測驗"
-                    
+
                     line_bot_api.reply_message(
                         event.reply_token,
                         TextSendMessage(text=reply_msg)
@@ -209,20 +211,13 @@ def callback(request):
                     )
 
                 else:
-                    tdnow = datetime.datetime.now()
-                    reply_msg = tdnow.strftime("%Y/%m/%d, %H:%M:%S") + '\n' + event.message.text
+                    # 使用 ph.read 函式來處理未匹配到的特定訊息
+                    reply_msg = ph.read(event.message.text)
                     line_bot_api.reply_message(
                         event.reply_token,
                         TextSendMessage(text=reply_msg)
                     )
-    return 'OK'
 
-if __name__ == "__main__":
-    arg_parser = ArgumentParser(
-        usage='Usage: python ' + __file__ + ' [--port <port>] [--help]'
-    )
-    arg_parser.add_argument('-p', '--port', type=int, default=8000, help='port')
-    arg_parser.add_argument('-d', '--debug', default=False, help='debug')
-    options = arg_parser.parse_args()
-
-    app.run(debug=options.debug, port=options.port)
+        return HttpResponse()
+    else:
+        return HttpResponseBadRequest()
