@@ -31,6 +31,12 @@ if channel_access_token is None:
     print('Specify LINE_CHANNEL_ACCESS_TOKEN as environment variable.')
     sys.exit(1)
 
+# 全局變數來跟踪乘法測驗的狀態
+multiplication_ing = False
+num1 = None
+num2 = None
+correct_answer = None
+
 line_bot_api = LineBotApi(channel_access_token)
 parser = WebhookParser(channel_secret)
 
