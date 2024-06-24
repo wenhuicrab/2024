@@ -16,6 +16,8 @@
 import os
 import sys
 import phonetic as ph
+import random
+import datetime
 from argparse import ArgumentParser
 
 from flask import Flask, request, abort
