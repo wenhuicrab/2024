@@ -132,20 +132,25 @@ def callback():
 
         msg = event.message.text
 
-        if msg in ['最新消息', '今日新聞']:
+        if msg.startswith('*'):
+            word_to_lookup = msg[1:].strip()
+            reply_msg = cambridge(word_to_lookup)
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=reply_msg)
+            )
+        elif msg in ['最新消息', '今日新聞']:
             reply_msg = getNews(6)
             line_bot_api.reply_message(
                 event.reply_token,
                 TextSendMessage(text=reply_msg)
             )
-
         elif msg == '統一發票':
             reply_msg = getInvoice()
             line_bot_api.reply_message(
                 event.reply_token,
                 TextSendMessage(text=reply_msg)
             )
-
         elif msg == '九九乘法':
             global multiplication_ing, num1, num2, correct_answer
             if multiplication_ing:
@@ -162,19 +167,17 @@ def callback():
                 event.reply_token,
                 TextSendMessage(text=reply_msg)
             )
-        
         elif msg == '結束測驗':
             if multiplication_ing:
                 multiplication_ing = False
                 reply_msg = "測驗已結束"
             else:
                 reply_msg = "目前沒有進行中的測驗"
-            
+
             line_bot_api.reply_message(
                 event.reply_token,
                 TextSendMessage(text=reply_msg)
             )
-
         elif multiplication_ing and msg.isdigit():
             try:
                 user_answer = int(msg)
@@ -193,7 +196,6 @@ def callback():
                 event.reply_token,
                 TextSendMessage(text=reply_msg)
             )
-
         else:
             tdnow = datetime.datetime.now()
             reply_msg = tdnow.strftime("%Y/%m/%d, %H:%M:%S") + '\n' + event.message.text
@@ -203,6 +205,7 @@ def callback():
             )
 
     return 'OK'
+
 
 if __name__ == "__main__":
     arg_parser = ArgumentParser(
