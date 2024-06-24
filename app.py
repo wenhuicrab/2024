@@ -114,6 +114,53 @@ def callback():
                 reply_msg = cambridge(msg[1:])
             elif msg in ['最新消息', '今日新聞']:
                 reply_msg = getNews(6)
+             elif msg == '九九乘法':
+                    if multiplication_ing:
+                        multiplication_ing = False
+                        reply_msg = "測驗結束"
+                    else:
+                        multiplication_ing = True
+                        num1 = random.randint(1, 9)
+                        num2 = random.randint(1, 9)
+                        correct_answer = num1 * num2
+                        reply_msg = f"測驗開始\n{num1} * {num2} 是多少?"
+
+                    line_bot_api.reply_message(
+                        event.reply_token,
+                        TextSendMessage(text=reply_msg)
+                    )
+                
+                elif msg == '結束測驗':
+                    if multiplication_ing:
+                        multiplication_ing = False
+                        reply_msg = "測驗已結束"
+                    else:
+                        reply_msg = "目前沒有進行中的測驗"
+                    
+                    line_bot_api.reply_message(
+                        event.reply_token,
+                        TextSendMessage(text=reply_msg)
+                    )
+
+                elif multiplication_ing and msg.isdigit():
+                    try:
+                        user_answer = int(msg)
+                        if user_answer == correct_answer:
+                            reply_msg = "恭喜你答對了!\n"
+                            num1 = random.randint(1, 9)
+                            num2 = random.randint(1, 9)
+                            correct_answer = num1 * num2
+                            reply_msg += f"下一題: {num1} * {num2} 是多少?"
+                        else:
+                            reply_msg = "嗯...再多想想答案吧\n"
+                    except ValueError:
+                        reply_msg = "請輸入有效的數字!\n"
+
+                    line_bot_api.reply_message(
+                        event.reply_token,
+                        TextSendMessage(text=reply_msg)
+                    )
+
             else:
                 # Default response
                 tdnow = datetime.datetime.now()
