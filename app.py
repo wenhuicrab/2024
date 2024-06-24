@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+
+#  Licensed under the Apache License, Version 2.0 (the "License"); you may
+#  not use this file except in compliance with the License. You may obtain
+#  a copy of the License at
+#
+#       https://www.apache.org/licenses/LICENSE-2.0
+#
 #  Unless required by applicable law or agreed to in writing, software
 #  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
 #  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -8,9 +16,6 @@
 import os
 import sys
 import phonetic as ph
-import datetime
-import requests
-from bs4 import BeautifulSoup
 from argparse import ArgumentParser
 
 from flask import Flask, request, abort
@@ -26,9 +31,16 @@ from linebot.models import (
 
 app = Flask(__name__)
 
+# Global variables to track multiplication test state
+multiplication_ing = False
+num1 = None
+num2 = None
+correct_answer = None
+
 # get channel_secret and channel_access_token from your environment variable
 channel_secret = os.getenv('LINE_CHANNEL_SECRET', None)
 channel_access_token = os.getenv('LINE_CHANNEL_ACCESS_TOKEN', None)
+
 if channel_secret is None:
     print('Specify LINE_CHANNEL_SECRET as environment variable.')
     sys.exit(1)
@@ -38,12 +50,6 @@ if channel_access_token is None:
 
 line_bot_api = LineBotApi(channel_access_token)
 parser = WebhookParser(channel_secret)
-
-# 全局變數來跟踪乘法測驗的狀態
-multiplication_ing = False
-num1 = None
-num2 = None
-correct_answer = None
 
 def index(request):
     return HttpResponse("hello")
@@ -105,139 +111,103 @@ def getNews(num=10):
         mm += '-' * 30 + '\n'
     return mm
 
-@csrf_exempt
-def callback(request):
-    global multiplication_ing, num1, num2, correct_answer
+@app.route("/callback", methods=['POST'])
+def callback():
+    signature = request.headers['X-Line-Signature']
+    body = request.get_data(as_text=True)
+    app.logger.info("Request body: " + body)
 
-    if request.method == 'POST':
-        signature = request.META['HTTP_X_LINE_SIGNATURE']
-        body = request.body.decode('utf-8')
+    try:
+        events = parser.parse(body, signature)
+    except InvalidSignatureError:
+        abort(400)
 
-        try:
-            events = parser.parse(body, signature)
-        except InvalidSignatureError:
-            return HttpResponseForbidden()
-        except LineBotApiError:
-            return HttpResponseBadRequest()
+    for event in events:
+        if not isinstance(event, MessageEvent):
+            continue
+        if not isinstance(event.message, TextMessage):
+            continue
 
-        for event in events:
-            # 若有訊息事件
-            if isinstance(event, MessageEvent):
-                msg = event.message.text
+        msg = event.message.text
 
-                if msg in ['hello', 'hi', '嗨', '哈囉']:
-                    line_bot_api.reply_message(
-                        event.reply_token,
-                        StickerSendMessage(package_id=11537, sticker_id=52002738)
-                    )
+        if msg in ['最新消息', '今日新聞']:
+            reply_msg = getNews(6)
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=reply_msg)
+            )
 
-                elif msg == '你是誰':
-                    reply_msg = '我是蔣中正!'
-                    line_bot_api.reply_message(
-                        event.reply_token,
-                        TextSendMessage(text=reply_msg)
-                    )
+        elif msg == '統一發票':
+            reply_msg = getInvoice()
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=reply_msg)
+            )
 
-                elif msg == 'guess':
-                    num = random.randint(1, 10)
-                    reply_msg = f"{num}"
-                    line_bot_api.reply_message(
-                        event.reply_token,
-                        TextSendMessage(text=reply_msg)
-                    )
+        elif msg == '九九乘法':
+            global multiplication_ing, num1, num2, correct_answer
+            if multiplication_ing:
+                multiplication_ing = False
+                reply_msg = "測驗結束"
+            else:
+                multiplication_ing = True
+                num1 = random.randint(1, 9)
+                num2 = random.randint(1, 9)
+                correct_answer = num1 * num2
+                reply_msg = f"測驗開始\n{num1} * {num2} 是多少?"
 
-                elif msg.startswith('/'):
-                    reply_msg = cambridge(msg[1:])
-                    line_bot_api.reply_message(
-                        event.reply_token,
-                        TextSendMessage(text=reply_msg)
-                    )
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=reply_msg)
+            )
+        
+        elif msg == '結束測驗':
+            if multiplication_ing:
+                multiplication_ing = False
+                reply_msg = "測驗已結束"
+            else:
+                reply_msg = "目前沒有進行中的測驗"
+            
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=reply_msg)
+            )
 
-                elif msg in ['最新消息', '今日新聞']:
-                    reply_msg = getNews(6)
-                    line_bot_api.reply_message(
-                        event.reply_token,
-                        TextSendMessage(text=reply_msg)
-                    )
-
-                elif msg == '統一發票':
-                    reply_msg = getInvoice()
-                    line_bot_api.reply_message(
-                        event.reply_token,
-                        TextSendMessage(text=reply_msg)
-                    )
-
-                elif msg in ['求籤', '抽籤']:
-                    num = random.randint(1, 100)
-                    img = f"https://www.lungshan.org.tw/fortune_sticks/images/{num:03d}.jpg"
-                    line_bot_api.reply_message(
-                        event.reply_token,
-                        ImageSendMessage(original_content_url=img, preview_image_url=img)
-                    )
-
-                elif msg.startswith('今天誰'):
-                    names = ['馮雅嵐', '鍾旻蓁', '陳玟卉', '施芷庭', '吉彥安']
-                    reply_msg = msg.replace('誰', '') + '的是:' + random.choice(names)
-                    line_bot_api.reply_message(
-                        event.reply_token,
-                        TextSendMessage(text=reply_msg)
-                    )
-
-                elif msg == '九九乘法':
-                    if multiplication_ing:
-                        multiplication_ing = False
-                        reply_msg = "測驗結束"
-                    else:
-                        multiplication_ing = True
-                        num1 = random.randint(1, 9)
-                        num2 = random.randint(1, 9)
-                        correct_answer = num1 * num2
-                        reply_msg = f"測驗開始\n{num1} * {num2} 是多少?"
-
-                    line_bot_api.reply_message(
-                        event.reply_token,
-                        TextSendMessage(text=reply_msg)
-                    )
-
-                elif msg == '結束測驗':
-                    if multiplication_ing:
-                        multiplication_ing = False
-                        reply_msg = "測驗已結束"
-                    else:
-                        reply_msg = "目前沒有進行中的測驗"
-
-                    line_bot_api.reply_message(
-                        event.reply_token,
-                        TextSendMessage(text=reply_msg)
-                    )
-
-                elif multiplication_ing and msg.isdigit():
-                    try:
-                        user_answer = int(msg)
-                        if user_answer == correct_answer:
-                            reply_msg = "恭喜你答對了!\n"
-                            num1 = random.randint(1, 9)
-                            num2 = random.randint(1, 9)
-                            correct_answer = num1 * num2
-                            reply_msg += f"下一題: {num1} * {num2} 是多少?"
-                        else:
-                            reply_msg = "嗯...再多想想答案吧\n"
-                    except ValueError:
-                        reply_msg = "請輸入有效的數字!\n"
-
-                    line_bot_api.reply_message(
-                        event.reply_token,
-                        TextSendMessage(text=reply_msg)
-                    )
-
+        elif multiplication_ing and msg.isdigit():
+            try:
+                user_answer = int(msg)
+                if user_answer == correct_answer:
+                    reply_msg = "恭喜你答對了!\n"
+                    num1 = random.randint(1, 9)
+                    num2 = random.randint(1, 9)
+                    correct_answer = num1 * num2
+                    reply_msg += f"下一題: {num1} * {num2} 是多少?"
                 else:
-                    # 使用 ph.read 函式來處理未匹配到的特定訊息
-                    reply_msg = ph.read(event.message.text)
-                    line_bot_api.reply_message(
-                        event.reply_token,
-                        TextSendMessage(text=reply_msg)
-                    )
+                    reply_msg = "嗯...再多想想答案吧\n"
+            except ValueError:
+                reply_msg = "請輸入有效的數字!\n"
 
-        return HttpResponse()
-    else:
-        return HttpResponseBadRequest()
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=reply_msg)
+            )
+
+        else:
+            tdnow = datetime.datetime.now()
+            reply_msg = tdnow.strftime("%Y/%m/%d, %H:%M:%S") + '\n' + event.message.text
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=reply_msg)
+            )
+
+    return 'OK'
+
+if __name__ == "__main__":
+    arg_parser = ArgumentParser(
+        usage='Usage: python ' + __file__ + ' [--port <port>] [--help]'
+    )
+    arg_parser.add_argument('-p', '--port', type=int, default=8000, help='port')
+    arg_parser.add_argument('-d', '--debug', default=False, help='debug')
+    options = arg_parser.parse_args()
+
+    app.run(debug=options.debug, port=options.port)
