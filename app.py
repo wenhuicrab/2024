@@ -18,19 +18,20 @@ import sys
 import phonetic as ph
 import random
 import datetime
+import requests
 from bs4 import BeautifulSoup
 from argparse import ArgumentParser
-
 from flask import Flask, request, abort
 from linebot import (
     LineBotApi, WebhookParser
 )
 from linebot.exceptions import (
-    InvalidSignatureError
+    InvalidSignatureError, LineBotApiError
 )
 from linebot.models import (
-    MessageEvent, TextMessage, TextSendMessage,
+    MessageEvent, TextMessage, TextSendMessage, ImageSendMessage, StickerSendMessage
 )
+
 
 app = Flask(__name__)
 
